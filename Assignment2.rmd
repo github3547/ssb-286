@@ -1,0 +1,492 @@
+---
+title: "Assignment-2(Data Exploration)"
+author: "Mohammad Khairul Jahan"
+date: "18/04/2022"
+output: html_document
+---
+
+
+```{r}
+
+#Introduction
+
+#The observations in the CSV files have been taken from the Bureau of Meteorology’s “real time” system. These observations provide details about the weather in the Australian Capital territory for 39 months. Most of the data were generated automatically. Some quality checking has been performed, but it is still possible for erroneous values to appear. Sometimes, when the daily maximum and minimum temperatures, rainfall or evaporation are missing, the next value given has been accumulated over several days rather than the normal one day.
+
+#There are 39 comma-separated data files provided with the previous assignment. These data are for the months from August 2018 to February 2022, (with some months were skipped).
+
+
+#Part A - Reading
+
+#A CSV file that contains all observations of the ACT weather that has been combined and cleaned needs to be loaded into a dataframe for further analysis.
+
+# 1)Load the supplied file act_weather_assign_2.csv into a dataframe or a tibble.
+
+act_weather_data<-read.csv("act_weather_assign_2.csv")
+
+
+#2)Demonstrate that the dataframe was correctly loaded.
+
+# This can be done via checking the number of rows and number of columns and checking the problems in the parsing the data records which means we can check it by finding the dimension or structure of the data frame.
+
+dim(act_weather_data)
+
+str(act_weather_data)
+
+
+#Part B - Analysing 
+
+#Print the summary including the (minimum, median, mean, maximum) of each of the following variables:
+
+#`Minimum_temperature`,
+
+#9am_Temperature,
+
+#Speed_of_maximum_wind_gust_(km/h)
+
+#3pm_Temperature and
+
+#Speed_of_maximum_wind_gust_(km/h).
+
+
+#For Minimum_temperature
+
+library(dplyr)
+
+act_weather_data%>%
+
+  summarise(minimum_Minimum_temperature=min(Minimum_temperature,na.rm = TRUE),
+            med_Minimum_temperature=median(Minimum_temperature,na.rm = TRUE),
+            mean_Minimum_temperature=mean(Minimum_temperature,na.rm=TRUE),
+            maximum_Minimum_temperature=max(Minimum_temperature,na.rm = TRUE))
+
+
+
+#For 9am_Temperature
+
+act_weather_data%>%
+  summarise(minimum_9am_Temperature=min(X9am_Temperature,na.rm = TRUE),
+            med_9am_Temperature=median(X9am_Temperature,na.rm = TRUE),
+            mean_9am_Temperature=mean(X9am_Temperature,na.rm=TRUE),
+            maximum_9am_Temperature=max(X9am_Temperature,na.rm = TRUE))
+
+
+
+#For Speed_of_maximum_wind_gust_(km/h)
+
+act_weather_data%>%
+  summarise(minimum_Speed_of_maximum_wind_gust_.km.h.=min(Speed_of_maximum_wind_gust_.km.h.,na.rm = TRUE),
+            med_Speed_of_maximum_wind_gust_.km.h.=median(Speed_of_maximum_wind_gust_.km.h.,na.rm = TRUE),
+            mean_Speed_of_maximum_wind_gust_.km.h.=mean(Speed_of_maximum_wind_gust_.km.h.,na.rm=TRUE),
+            maximum_Speed_of_maximum_wind_gust_.km.h.=max(Speed_of_maximum_wind_gust_.km.h.,na.rm = TRUE))
+
+
+
+#For 3pm_Temperature
+
+act_weather_data%>%
+  summarise(minimum_3pm_Temperature=min(X3pm_Temperature,na.rm = TRUE),
+            med_3pm_Temperature=median(X3pm_Temperature,na.rm = TRUE),
+            mean_3pm_Temperature=mean(X3pm_Temperature,na.rm=TRUE),
+            maximum_3pm_Temperature=max(X3pm_Temperature,na.rm = TRUE))
+
+
+
+
+#For Speed_of_maximum_wind_gust_(km/h)
+
+act_weather_data%>%
+  summarise(minimum_Speed_of_maximum_wind_gust_.km.h.=min(Speed_of_maximum_wind_gust_.km.h.,na.rm = TRUE),
+            med_Speed_of_maximum_wind_gust_.km.h.=median(Speed_of_maximum_wind_gust_.km.h.,na.rm = TRUE),
+            mean_Speed_of_maximum_wind_gust_.km.h.=mean(Speed_of_maximum_wind_gust_.km.h.,na.rm=TRUE),
+            maximum_Speed_of_maximum_wind_gust_.km.h.=max(Speed_of_maximum_wind_gust_.km.h.,na.rm = TRUE))
+
+
+
+
+
+#2)What is the average minimum temperature of each month? 
+
+#There are 39 months, which means the result should be 39 values. 
+
+library(tidyverse)
+
+library(dplyr)
+
+act_weather_data%>%
+  group_by(Month,Year)%>%
+  summarise(mean_value=mean(Minimum_temperature,na.rm=TRUE))
+
+
+# So, here we can see a tibble which represents 39 rows that means we have 39 values for 39 months.
+
+
+
+#3)What is the average of maximum temperature of each month?
+
+act_weather_data%>%
+  group_by(Month,Year)%>%
+  summarise(mean_value=mean(Maximum_temperature,na.rm=TRUE))
+
+
+#Similarly,here we can see a tibble which represents 39 rows that means we have 39 values for 39 months.
+
+
+#4)What is the average of the speed of maximum wind gust per each group of the direction of maximum wind gust?
+
+
+tapply(act_weather_data$Speed_of_maximum_wind_gust_.km.h.,INDEX = act_weather_data$Direction_of_maximum_wind_gust,FUN = mean)
+
+
+#5)Which month has the highest rain fall quantity? And in which year?
+
+act_weather_data%>%
+  group_by(Month,Year)%>%
+  summarise(maximum_value=max(Rainfall_.mm.,na.rm = TRUE))
+
+#Here,from tibble we can see February has the highest raifall quantity in the year 2020.
+
+
+#6) Which month was dry, if any, ( i.e., least amount of rainfall)? And in which year?
+
+
+act_weather_data%>%
+  group_by(Month,Year)%>%
+  summarise(minimum_value=min(Rainfall_.mm.,na.rm = TRUE))
+
+
+#Here we have encountered a problem.If we see the tibble there are lots of month and year which have the same least amount of rainfall(which is 0).As we require to identify a specific month and year,we can proceed through the following ways:
+
+#We can build graphs like Rainfall per month and rainfal per year. And then after visualizing the graphs properly we can answer this question.
+
+act_weather_data%>%
+  group_by(Month)%>%
+  ggplot(act_weather_data,mapping = aes(x=Month,y=Rainfall_.mm.))+geom_bar(stat = "identity")
+
+#So,here we can see it clearly from the graph that April is the month which has least amount of rainfall.
+
+act_weather_data%>%
+  group_by(Year)%>%
+  ggplot(act_weather_data,mapping = aes(x=Year,y=Rainfall_.mm.))+geom_bar(stat = "identity")
+
+
+#From graph,we can visualize it clearly that 2022 is the year when least amount of rainfall occurs.
+
+
+
+#7)What about the humidity, which month in the ACT has the highest humidity level in 2019?
+
+act_weather_data%>%
+  filter(Year==2019)%>%
+  group_by(Month)%>%
+  summarise(maximum_value=max(X9am_relative_humidity_...,na.rm = TRUE))
+
+#Here, from tibble we can see ACT has the highest humidity level in the month of June and July in 2019 in terms of 9am_relative_humidity_...
+
+
+act_weather_data%>%
+  filter(Year==2019)%>%
+  group_by(Month)%>%
+  summarise(maximum_value=max(X3pm_relative_humidity_...,na.rm = TRUE))
+
+
+#Here, from tibble we can see Act has the highest humidity level in the month of May in 2019 in terms of 3pm_relative_humidity_...
+
+
+#8)For 2019, extract the minimum, maximum temperature, wind speed and humidity per month and per quarter in 2019 only.
+
+
+
+act_weather_data1<-act_weather_data%>%filter(Year==2019)%>%
+  group_by(Month)
+
+
+act_weather_data1
+  act_weather_data1["quarter"]<-act_weather_data1$Month/4
+  act_weather_data1
+  
+  
+  
+  #Extracting minimum,maximum temperature,wind speed and humidity(9am_relative_humidity_...& 3pm_relative_humidity_...) for 2019 per month and per quarter
+  
+  
+  act_weather_data1[, c(3,4,7,10,16)]
+
+  
+  #9) Build graphs that show the distribution for each variable in the previous question.
+  
+ #Following are the graphs to visualize the distribution of variables in the last question.
+  
+  library(ggplot2)
+  
+  #For Minimum_temperature
+  
+  p<-ggplot(act_weather_data1,aes(x=Minimum_temperature))+geom_bar(stat="count")
+  
+  p
+  
+  #For Maximum_temperature
+  
+  p<-ggplot(act_weather_data1,aes(x=Maximum_temperature))+geom_bar(stat = "count")
+  
+  p
+  
+  
+  #For wind speed
+  
+  p<-ggplot(act_weather_data1,aes(x=Speed_of_maximum_wind_gust_.km.h.
+))+geom_bar(stat = "count")
+  
+  p
+  
+  
+  #For humidity(9am_relative_humidity&3pm_relative_humidity)
+  
+  #For 9am_relative_humidity
+
+  p<-ggplot(act_weather_data1,aes(x=X9am_relative_humidity_...))+geom_bar(stat = "count")
+  
+  p
+  
+  #For 3pm_relative_humidity
+  
+  p<-ggplot(act_weather_data1,aes(x=X3pm_relative_humidity_...))+geom_bar(stat="count")
+  
+  p
+  
+  
+#10) There is a claim that the climate-change phenomenon is hitting the ACT region over the last 4 years. Using the act_weather_data, can you help the authorities validate whether this claim is correct or not?
+  
+ #We will elaborate this question by understanding what the climate change phenomenon are:
+  
+  #In our data-frame(act_weather_data) the following factors are the climate change phenomenon:
+  
+  #Minimum_temperature
+  #Maximum_temperature
+  #Rainfall_mm
+  #Speed_of_maximum_wind_gust(km/h)
+  #Relative_humidity
+  
+  # We will dicuss all these factors briefly with graphic visualization whether these phenomena are affecting/hitting the ACT region over the last 4 years.(2019,2020,2021,2022)
+
+  
+  library(ggplot2)
+  
+  # Here we can start with Minimum_temperature
+  
+  p<-ggplot(act_weather_data,aes(x=Year,y=Minimum_temperature))+geom_bar(stat = "identity")
+  
+  p
+  
+  # So,we can see from the graph that there is a change in Minimum_temperature in ACT over the last 4 years.Speciaaly,the change in Minimum_temperature mainly noticed in 2019 and 2022.But in 2020 and 2021 there is a little variation.
+  
+  
+  # When it comes to Maximum_temperature
+  
+  p<-ggplot(act_weather_data,aes(x=Year,y=Maximum_temperature))+geom_bar(stat = "identity")
+  
+  p
+   
+  
+  #From graph we can see the changes in Maximum_temperature is mainly seen in 2019 in ACT while in 2022 it was quite opposite to that.Meanshile,in 2020 and 2021 it shows an increasing trend.
+  
+  
+  # For Rainfall_mm
+  
+  
+   p<-ggplot(act_weather_data,aes(x=Year,y=Rainfall_.mm.))+geom_bar(stat = "identity")
+  
+  
+   p
+  
+  
+   # From bar chart,we can among the last 4 years(2019,2020,2021,2022)overall Rainfall_.mm. was  highest in the year 2021 while it was the lowest in 2022.Besides, in the year 2019 and 2020, it shows an increasing trend.
+   
+   
+  # In terms of Speed_of_maximum_wind_gust(km/h)
+   
+   p<-ggplot(act_weather_data,aes(x=Year,y=Speed_of_maximum_wind_gust_.km.h.))+geom_bar(stat = "identity")
+  
+   p
+   
+   
+   #From bar chart,we can observe that the speed_of_maximum_wind_gust_.km.h. was higher in the year 2019 and 2021, while it was lowest in the year 2022.
+   
+   
+   #Impact of Relative_humidity
+   
+   p<-ggplot(act_weather_data,aes(x=Year,y=X9am_relative_humidity_...))+geom_bar(stat = "identity")
+   
+   p
+   
+   #From graph,we can see Relative_humidity(9am_relative_humidity) was the highest in the year 2021 compared to 4 years(2019,2020,2021,2022).On the other hand it was lowest in the year 2022.
+   
+   
+  p<-ggplot(act_weather_data,aes(x=Year,y=X3pm_relative_humidity_...))+geom_bar(stat = "identity")
+   
+  p
+  
+  
+  #From graph we can see that Relative_humidity(3pm_relative_humidity) showing exactly the same trend as it showed for the Relative_humidity(9am_relative_humidity).The Relative_humidity was highest in the year 2021 among the last 4 years(2019,2020,2021,2022).
+  
+  
+  #In a nutshell, from the above analysis we can say that the climate-change phenomenon(i.e.,Minimum_temperature,Maximum_temperature,Rainfall_(mm),Speed_of_maximum_wind_gust(km/h),Relative_humidity) is hitting the ACT region over the last 4 years(i.e.,2019,2020,2021,2022).So,the claim that the climate-change phenomenon is hitting the ACT region over the last 4 years is correct.
+  
+
+  
+  
+#Part C - Insights (10 marks)
+  
+#As a data scientist, We need to practice extracting insights and valuable information from the analysis conducted on the data. This can be done by posing some real-world problems or decisions that can be solved by doing some analysis.
+  
+#So,here we will create a report with the following details based on “How to grow: Tomato”, SBS Food, 2020. (Online). Available: https://www.sbs.com.au/food/article/2012/09/06/how-grow-tomato using act_weather_data.
+  
+  
+#Problem identification-1
+  
+#Here we are going to work with a problem such as “In horticulture: Is it a good idea to plant tomatoes commercially in the ACT? If so when is the best timing for planting?”  
+  
+  
+#Knowledge
+  
+#Tomatoes thrive in warm sunny conditions. They hate cold frosty weather and windy conditions. Ideal daytime temperatures for growing are between 21-29°C. Any higher or lower reduces fruit set. 
+  
+  
+#Information
+  
+#Now,We need to look at Which months of the year have frosty temperature (below zero) and highest windy conditions from our act_weather_data
+  
+  
+#From data we can see June,July,August and September are the months of year we have frosty temperature and in 2020 we have maximum windy condition in the month of January.
+  
+  
+ # Across 2019-2020, plot the bar-charts of minimum temperature, and maximum wind speed per month” 
+  
+ act_weather_data%>%
+  group_by(Month,Year=2019)%>%
+  ggplot(act_weather_data,mapping=aes(x=Month,y=Minimum_temperature))+geom_bar(stat = "identity")
+ 
+ 
+ 
+ act_weather_data%>%
+  group_by(Month,Year=2020)%>%
+  ggplot(act_weather_data,mapping=aes(x=Month,y=Minimum_temperature))+geom_bar(stat = "identity")
+  
+ #Here, from bar chart we can clearly see that June,July,August and September are the months that possess the frosty temperature(below zero) which is not suitable for tomato cultivation.We can also say that Spring and Autumn are the best time to cultivate tomato.
+ 
+ act_weather_data%>%
+  group_by(Month,Year=2019)%>%
+  ggplot(act_weather_data,mapping=aes(x=Month,y=Speed_of_maximum_wind_gust_.km.h.))+geom_bar(stat = "identity")
+ 
+  
+  act_weather_data%>%
+  group_by(Month,Year=2020)%>%
+  ggplot(act_weather_data,mapping=aes(x=Month,y=Speed_of_maximum_wind_gust_.km.h.))+geom_bar(stat = "identity")
+  
+ #From graph,we can see January is the month when there is a maximum windy condition.So,tomato can't be cultivated in the month of January.
+  
+  
+  #Data Analysis
+  
+  
+  view(act_weather_data)
+  
+  act_weather_data%>%
+  group_by(Month,Year)%>%
+  summarise(minimum_value=min(Minimum_temperature,na.rm = TRUE))
+  
+  
+  act_weather_data%>%
+  group_by(Month,Year)%>%
+  summarise(maximum_value=max(Speed_of_maximum_wind_gust_.km.h.,na.rm = TRUE))
+  
+  
+  # Plot of Minimum_temperature and Speed_of_maximum_wind_gust per month and per year
+
+  act_weather_data%>%
+  group_by(Month)%>%
+  ggplot(act_weather_data,mapping=aes(x=Month,y=Minimum_temperature))+geom_bar(stat = "identity")
+  
+  
+  act_weather_data%>%
+  group_by(Month)%>%
+  ggplot(act_weather_data,mapping=aes(x=Month,y=Speed_of_maximum_wind_gust_.km.h.))+geom_bar(stat = "identity")
+  
+  
+  
+   act_weather_data%>%
+  group_by(Year)%>%
+  ggplot(act_weather_data,mapping=aes(x=Year,y=Minimum_temperature))+geom_bar(stat = "identity")
+  
+  
+  act_weather_data%>%
+  group_by(Month)%>%
+  ggplot(act_weather_data,mapping=aes(x=Year,y=Speed_of_maximum_wind_gust_.km.h.))+geom_bar(stat = "identity")
+  
+  
+  
+  #Conclusion
+  
+  #From above analysis,we can say that tomatoes can be grown commercially in the Act and the appropriate time for harvesting tomatoes in ACT will be in spring(temperate to cool areas) and autumn(tropical to subtropical zones).Also,need to plant seedlings from November to January.
+  
+  
+  
+  #Problem identification-2
+  
+#Here we are going to work with a problem such as “Will it be a good idea to plant avocados in ACT?"
+  
+  
+  #Knowledge
+  
+  #Avocados will only thrive and produce fruit outdoors in a climate with plenty of sun and relatively warm temperatures.They can not tolerate frosty temperatures and wet conditions(Rainfall).
+  
+  #Information
+  
+#Now,We need to look at Which months of the year have the frosty temperatures(below zero) and maximum amount of Rainfall from our act_weather_data
+  
+  #Data Analysis
+  
+   view(act_weather_data)
+  
+  act_weather_data%>%
+  group_by(Month,Year)%>%
+  summarise(minimum_value=min(Minimum_temperature,na.rm = TRUE))
+  
+  
+  act_weather_data%>%
+  group_by(Month,Year)%>%
+  summarise(maximum_value=max(Rainfall_.mm..na.rm=TRUE))
+   
+
+ #Plot of Minimum_temperature and Rainfall per month 
+  
+  act_weather_data%>%
+    group_by(Month)%>%
+    ggplot(act_weather_data,mapping = aes(x=Month,y=Minimum_temperature))+geom_bar(stat = "identity")
+
+
+#Here, from bar chart we can clearly see that June,July,August and September are the months that possess the frosty temperature(below zero) which is not suitable for avocado cultivation in ACT.
+  
+  
+  act_weather_data%>%
+    group_by(Month)%>%
+    ggplot(act_weather_data,mapping = aes(x=Month,y=Rainfall_.mm.))+geom_bar(stat = "identity")
+
+  
+ #From,bar graph we can also say November is the month when highest amount of Rainfall occurs in ACT.As avocados need  warm and sunny conditions to grow, it can not be cultivated in the month of November in ACT.
+  
+  
+  
+  #Conclusion
+  
+  #From above analysis,we can say that avocados can be grown  in  Act and the appropriate time for harvesting avocados in ACT will be in March through June.
+  
+  
+  
+  
+  
+  
+  
+  
+
+```
+
