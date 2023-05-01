@@ -1,0 +1,342 @@
+---
+title: "NBA"
+author: ""
+date: ""
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+```{r importing library}
+library(data.table)
+library(tidyverse)
+library(summarytools)
+library(lubridate)
+library(ggplot2)
+library(ggcorrplot)
+install.packages("corrplot")
+```
+
+# 1. Introduction
+
+Basketball is a popular sport played worldwide, characterized by fast-paced game play, high-scoring action, and a variety of different positions with unique skill sets. Key metrics used to evaluate player performance in basketball include points per game (PPG), rebounds per game (RPG), assists per game (APG), steals per game (SPG), and blocks per game (BPG). This game is played in a court by two teams made up of five players each of which each has his own skill giving him a specific requirements and responsibilities: point guard, shooting guard, small forward, power forward, and center.
+
+In this report, we will analyze the performance of players on the Chicago Bulls team in the NBA (National Basketball Association) during the 2018-2019 season. The Chicago Bulls placed 27th out of 30 teams in the league, with a budget of $118 million for player contracts, which ranked 26th out of 30 teams. Our aim is to identify the best five starting players on the team, one for each position, while staying within the team's budget constraints.
+
+To achieve this aim, we will be using the Wins Above Replacement (WAR) model, which is a statistical model used to estimate a player's value to their team compared to a replacement-level player. By calculating each player's WAR, we can identify which players are contributing the most to the team's success and should be prioritized for starting positions. We will also consider other relevant metrics such as player salaries and team budget constraints.
+
+This analysis is important as it can provide valuable insights to the team's management and coaching staff, helping them make informed decisions about player selection and team strategy. By identifying the best starting players, the team can improve their chances of winning games and ultimately improving their overall performance in the league. This potential will have an impact on the team's fan base, revenue, and overall success in the league.
+
+# 2. Reading and cleaning the raw data
+
+The data comes from multiple CSV files located in the "data/raw" folder.
+
+```{r importing Data}
+#Importing a csv files and saving them in form of a list 
+list_dataframe = list.files(path = "data/raw", pattern = "*.csv") %>%
+  paste("data/raw/",.,sep = "") %>%
+  lapply(.,function(x) fread(x))
+```
+
+## Data Importation
+
+The first step in the data importation process is to import the CSV files and save them as a list of data frames using the `list.files` and `lapply` functions. The `list.files` function returns a vector of file names that match the specified pattern in the specified path. The paste function is used to add the path to each file name. The resulting vector of file names is then passed to the `lapply` function, which applies the fread function to each file to read it into a data frame.
+
+```{r merging the data set into one}
+# Merge the first two data frames in the list by player name
+Data = merge(list_dataframe[[1]], list_dataframe[[2]], by = "player_name")
+
+# Merge the third and fourth data frames in the list by team
+Data1 = merge(list_dataframe[[3]], list_dataframe[[4]], by = "Team")
+
+# Replace LA with Los Angeles in the team names in the fifth data frame
+list_dataframe[[5]]$team = gsub("LA", "Los Angeles", list_dataframe[[5]]$team)
+
+# Find the team index for each team name in the fifth data frame
+Rk = NULL
+for (i in 1:length(list_dataframe[[5]]$team)) {
+  Team = grep(list_dataframe[[5]]$team[i], list_dataframe[[4]]$Team)
+  Rk = rbind(Rk, Team)
+}
+
+# Merge the fifth data frame with the team index to the previous merged data frame
+Data2 = merge(Data1, data.frame(list_dataframe[[5]], Rk = Rk), by.x = "Rk.y", by.y = "Rk")
+
+# Replace team names in Data by using abbreviations with full team names
+Data$Tm = gsub("BRK|TOT", c("BKN", "TOR"), Data$Tm)
+Data$Tm = gsub("CHO", "CHA", Data$Tm)
+Data$Tm = gsub("PHO", "PHX", Data$Tm)
+
+# Create a data frame with the NBA team abbreviations and full team names
+NBA_Teams = data.frame(
+  stringsAsFactors = FALSE,
+  check.names = FALSE,
+  `Abbreviation` = c("ATL\tAtlanta Hawks","BKN\tBrooklyn Nets",
+                      "BOS\tBoston Celtics",
+                       "CHA\tCharlotte Hornets","CHI\tChicago Bulls",
+                       "CLE\tCleveland Cavaliers","DAL\tDallas Mavericks",
+                       "DEN\tDenver Nuggets","DET\tDetroit Pistons",
+                       "GSW\tGolden State Warriors",
+                      "HOU\tHouston Rockets","IND\tIndiana Pacers",
+                       "LAC\tLos Angeles Clippers","LAL\tLos Angeles Lakers",
+                       "MEM\tMemphis Grizzlies","MIA\tMiami Heat",
+                       "MIL\tMilwaukee Bucks","MIN\tMinnesota Timberwolves",
+                       "NOP\tNew Orleans Pelicans","NYK\tNew York Knicks",
+                       "OKC\tOklahoma City Thunder",
+                      "ORL\tOrlando Magic","PHI\tPhiladelphia 76ers",
+                       "PHX\tPhoenix Suns","POR\tPortland Trail Blazers",
+                       "SAC\tSacramento Kings","SAS\tSan Antonio Spurs",
+                       "TOR\tToronto Raptors",
+                      "UTA\tUtah Jazz","WAS\tWashington Wizards")) %>% 
+  separate(Abbreviation, c("Acronym", "Franchise"), sep = "\t")
+
+# Merge Data and Data2 by the full team name
+Data = merge(Data, NBA_Teams, by.x = "Tm", by.y = "Acronym")
+
+# Merge the previous merged data frame with the complete data frame
+Complete_Data = merge(Data, Data2, by.x = "Franchise", by.y = "Team")
+
+# Rename the columns to differentiate between player and team variables
+names(Complete_Data) = gsub(".x$", "_Player", names(Complete_Data))
+names(Complete_Data) = gsub(".y$", "_Team", names(Complete_Data))
+
+# Clean up the salary variable by removing commas and converting to numeric
+Complete_Data$salary_Team = gsub(",| ", "", Complete_Data$salary_Team)
+Complete_Data$salary_Team=as.numeric(substring(Complete_Data$salary_Team,2))
+
+Complete_Data=Complete_Data %>% dplyr::select(-c(team,team_id,V23,V24,V25))
+
+Complete_Data$Franchise=factor(Complete_Data$Franchise)
+Complete_Data$Pos=factor(Complete_Data$Pos)
+
+```
+
+Next, we merge two data frames from the list using the `merge` function. We pass the two data frames as arguments and specify the column to merge by using the `by` parameter.
+
+Then we use the `grep` function in a loop to match the teams from one of the data frames with the other. We save the resulting matches in a new data frame using the `rbind` function.
+
+We merge this new data frame with another data frame from the list using the `merge` function again. We specify the columns to merge by using the `by.x` and `by.y` parameters.
+
+Finally, we merge the resulting data frame with a data frame that contains the abbreviations and names of all NBA teams. We use the merge function again and specify the columns to merge by using the `by.x` and `by.y` parameters.
+
+## Data Cleaning
+
+After importing the data, we perform several cleaning steps. First, we use the `gsub` function to replace the "LA" team abbreviation with "Los Angeles" in the fifth data frame.
+
+Next, we use the `gsub` function again to replace various team abbreviations with their full names in the first data frame. We chain multiple `gsub` functions together to perform multiple replacements in a single step.
+
+We also use the `dplyr::select` function to remove unnecessary columns from the resulting data frame.
+
+Finally, we use the `gsub`, `substring` and `as.numeric` functions to clean up the salary column in the resulting data frame. We remove commas and spaces from the column using `gsub`, then we remove the dollar sign using `substring` and convert the resulting strings to numeric values using `as.numeric`.
+
+# 3. Exploratory analysis
+
+We did an exploratory data analysis (EDA) of NBA player data for the 2018-2019 season. The dataset contains information on 686 players and 80 variables. The aim of this analysis is to provide a summary of the data and to identify potential relationships between the variables.Click here for [Variable description](/Variable_definations.txt)
+
+```{r Summary and cleaning}
+# Summary
+#view(dfSummary(Complete_Data))
+
+# checking for missing values per column
+colSums(is.na(Complete_Data))
+
+# handling the missing values
+Complete_Data=Complete_Data %>% select(-c(`FG%_Player`,`3P%_Player`,
+                                          `2P%_Player`,`eFG%_Player`,
+                                          `FT%_Player`))
+any(is.na(Complete_Data))
+```
+
+The dataset is made up of 80 variables, of which 90% are numerical. The variables include player demographic information (e.g., age, height), player statistics (e.g., points, rebounds), and team information (e.g., team name, franchise). Missing values were found in some of the variables, but they were handled appropriately by removing columns with high missing value rates.For data structure and summary click [Data structure and summary](/Data_Frame_Summary.html).
+
+## Graphs and Tables {.tabset}
+
+### Correlation
+
+```{r Visualization}
+# Check the correlation between the variables
+cor_Complete_Data <- select(Complete_Data, -c(Tm, player_name,
+                                              player_id, Pos,Franchise))
+corrplot::corrplot(cor(cor_Complete_Data))
+```
+
+A correlation matrix was created to check for correlations between the numerical variables. The correlation matrix showed a high positive correlation between points and minutes played, as well as between rebounds and minutes played. There was also a high negative correlation between age and minutes played.
+
+### Distribution of the variables
+
+```{r}
+# Visualize the distribution of the variables
+ggplot(Complete_Data, aes(x = salary_Player)) +
+  geom_histogram(binwidth = 500000, color = "black", fill = "skyblue") +
+  ggtitle("Distribution of Player Salaries") +
+  xlab("Salary") +
+  ylab("Frequency")
+
+ggplot(Complete_Data, aes(x = Age_Player)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "skyblue") +
+  ggtitle("Distribution of Player Ages") +
+  xlab("Age") +
+  ylab("Frequency")
+
+ggplot(Complete_Data, aes(x = G_Player)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "skyblue") +
+  ggtitle("Distribution of Games Played") +
+  xlab("Games Played") +
+  ylab("Frequency")
+
+ggplot(Complete_Data, aes(x = PTS_Player)) +
+  geom_histogram(binwidth = 50, color = "black", fill = "skyblue") +
+  ggtitle("Distribution of Player Points") +
+  xlab("Points") +
+  ylab("Frequency")
+```
+
+Histograms were created to visualize the distribution of some of the variables. The histograms showed that the salary variable was skewed to the right, with most players having a salary of around $2 million. The age variable was normally distributed, with most players being in their mid-20s. The games played variable was left-skewed, with most players having played more than 60 games. The points variable was also right-skewed, with most players scoring fewer than 500 points.
+
+### Relationship between variables
+
+```{r}
+# Visualize the relationship between variables
+ggplot(Complete_Data, aes(x = Age_Player, y = salary_Player)) +
+  geom_point(color = "darkred", alpha = 0.5) +
+  ggtitle("Player Salary vs Age") +
+  xlab("Age") +
+  ylab("Salary")+
+  geom_smooth(method = "lm")
+
+ggplot(Complete_Data, aes(x = G_Player, y = PTS_Player)) +
+  geom_point(color = "darkblue", alpha = 0.5) +
+  ggtitle("Player Points vs Games Played") +
+  xlab("Games Played") +
+  ylab("Points")+
+  geom_smooth(method = "lm")
+
+# Plot a box plot of the player salary for each position
+ggplot(Complete_Data, aes(x = Pos, y = salary_Player)) +
+  geom_boxplot(color = "red", fill = "yellow", alpha = 0.5) +
+  labs(x = "Position", y = "Salary", 
+       title = "Boxplot of Player Salary by Position")
+
+# Plot a scatter plot of the player efficiency rating vs. player age
+ggplot(Complete_Data, aes(x = Age_Player, y = G_Player)) +
+  geom_point(color = "purple", alpha = 0.5) +
+  labs(x = "Age", y = "Games Played", title = "Player Games Played vs. Age")
+
+ggplot(Complete_Data, aes(x = FG_Player, y = TRB_Player, color = Pos)) +
+  geom_point(alpha = 0.5) +
+  ggtitle("Field Goals vs Total Rebounds by Position") +
+  xlab("Field Goals") +
+  ylab("Total Rebounds")
+```
+
+The scatter plots and box plots are particularly helpful in identifying patterns and trends in your data.
+
+In the scatter plot of player salary vs age, it appears that there is a slight positive correlation between these variables, with older players tending to earn higher salaries. The scatter plot of player points vs games played shows also a slight positive correlation, with players who have played more games generally having higher point totals.
+
+The box plot of player salary by position shows that shooting guards/small forward and power forward/small forward tend to have higher salaries than shooting guards, small forwards, and power forwards. this indicates that players with two skill sets tend to be paid higher than players only skilled in one are.
+
+Lastly, the scatter plot of field goals vs total rebounds by position shows that centers tend to have the highest number of field goals and rebounds, while shooting guards have the lowest. This is not surprising given the different roles and responsibilities of players in each position.
+
+### Tables
+
+```{r}
+# Create summary tables by position
+pos_table <- group_by(Complete_Data, Pos) %>%
+  summarise(avg_salary = mean(salary_Player),
+            avg_age = mean(Age_Player),
+            avg_points = mean(PTS_Player),
+            avg_rebounds = mean(TRB_Player)) %>% 
+  arrange(desc(avg_salary))
+
+pos_table
+
+# Create a summary table by team
+team_table <- group_by(Complete_Data, Tm) %>%
+  summarise(avg_salary = mean(salary_Player),
+            avg_age = mean(Age_Player),
+            avg_points = mean(PTS_Player),
+            avg_rebounds = mean(TRB_Player)) %>% 
+  arrange(desc(avg_salary))
+
+team_table
+```
+
+Summary tables were created by position and by team. The tables showed that centers for a single skilled player had the highest average salary, while shooting guards had the lowest. The tables also showed that the Miami had the highest average salary and Golden State had the highest average points per game and second highest average salary.
+
+# 4. Data modelling and results
+
+Computing the Wins Above Replacement
+
+$WAR = (TPC - Average.TPC)/10$
+
+Computing the average Total Points Contributed $Average.TPC=TPC/Number.of.Players$
+
+Computing the Total Points Contributed $TPC=PTS_{Player} + 1.25*(AST_{Player} + TRB_{Player}) + 1.5*STL_{Player} + 1.5*BLK_{Player} - 0.75*(FGA_{Player} - FG_{Player}) - 0.375*(FTA_{Player} - FT_{Player}) - TOV_{Player}$
+
+```{r Modeling}
+# create a new column for player's total points contributed (TPC)
+Complete_Data <- mutate(Complete_Data, TPC = PTS_Player + 1.25*(AST_Player + TRB_Player) + 1.5*STL_Player + 1.5*BLK_Player - 0.75*(FGA_Player - FG_Player) - 0.375*(FTA_Player - FT_Player) - TOV_Player)
+
+# calculate the average TPC for all players
+avg_TPC <- mean(Complete_Data$TPC)
+
+# calculate the player's individual WAR
+Complete_Data <- mutate(Complete_Data, WAR = ((TPC - avg_TPC) / 10))
+
+# display the top 10 players by WAR
+top10_WAR <- Complete_Data %>% arrange(desc(WAR)) %>% head(10)
+top10_WAR
+```
+
+The WAR model computed evaluates a basketball player's overall contribution to their team in terms of wins above a replacement player. The model is based on the concept of Total Points Contributed (TPC), which is a comprehensive measure of a player's performance that takes into account points scored, assists, rebounds, steals, blocks, turnovers, and field goal and free throw attempts and makes. The TPC is then adjusted for the average TPC across all players to determine how much each player contributes to their team's overall success relative to the average player.
+
+The WAR model assumes that there is a replacement player available who can be signed or called up from the team's minor league system to replace a player who is injured or under-performing. The model calculates the number of additional wins a team would expect to achieve by replacing a given player with the replacement player. The WAR value for each player is then calculated as the difference between the player's TPC and the TPC of a replacement-level player, divided by 10 to scale the results to wins.
+
+The WAR model is used to evaluate the performance of NBA players and to identify the top performers in terms of overall contribution to their team's success.
+
+# 5. Player recommendations
+
+```{r}
+# Set budget limit
+budget_limit <- 118/5*1000000# Total planned budget per player
+
+# Filter data to include only players within budget
+Player_Selection <- Complete_Data %>% 
+  filter(salary_Player <= budget_limit) %>% 
+  select(Franchise,player_name,Pos,Age_Player,WAR,salary_Player) %>% 
+  group_by(Pos) %>% arrange(desc(WAR))
+
+# Select the top players based on WAR and Position
+top_players <- Player_Selection %>% group_by(Pos) %>% filter(WAR==max(WAR))
+
+# View the selected players
+print(top_players)
+
+#Top 5 best palyers in the league
+Top_5=top_players %>% head(5)
+print(Top_5)
+
+#Total budget to be spent
+sum(Top_5$salary_Player)
+```
+Based on the top 5 players recommended by the WAR model, the Chicago Bulls could benefit from signing players who are in their prime years and have a high WAR.The potential players for recommendations for different position include:
+
+**Karl-Anthony Towns**: A young and dominant center, Towns could be a valuable addition to the Bulls' front court. At only 23 years old and with a WAR of 228, he has plenty of room for growth and could be a long-term solution for the Bulls at center.
+
+**Ben Simmons**: Simmons is a versatile point guard who can contribute in multiple ways. At only 22 years old and with a WAR of 192, he has already proven to be a valuable player. With his ability to score, rebound, and facilitate the offense, he could help the Bulls in multiple areas.
+
+**Tobias Harris**: A solid power forward with a WAR of 156, Harris could be a reliable scorer and rebounder for the Bulls. At 26 years old, he is in his prime and could be a good addition to the team's frontcourt.
+
+**Luka Doncic**: A young shooting guard with a lot of potential, Doncic could be a valuable addition to the Bulls' backcourt. With a WAR of 145 at only 19 years old, he has already shown that he can contribute at a high level. His scoring and playmaking ability could make him a valuable asset for the team.
+
+**Kawhi Leonard**: A proven veteran with a WAR of 136, Leonard could be a valuable addition to the Bulls' lineup. As a small forward, he could provide scoring and defense on the perimeter. Although he is 27 years old, he has proven that he can perform at a high level in the playoffs, which could be valuable for the Bulls if they make a postseason run.
+
+# 6. Summary
+
+In this project, we analyzed the performance of NBA players in the 2018-2019 season and used statistical modeling to determine the Wins Above Replacement (WAR) metric for each player. We found that the top players in terms of WAR were Karl-Anthony Towns, Ben Simmons, Tobias Harris, Luka Doncic, and Kawhi Leonard. These players are recommended for the Chicago Bulls franchise based on their performance and overall value.
+
+In addition to the top players, we also performed exploratory data analysis and found interesting insights, such as the distribution of player salaries and ages, the relationship between player points and games played, and the distribution of player salaries by position. The EDA indicated that young players were cheaper compared to old players.
+
+One limitation of our model is that it only considers performance in the 2018-2019 season, and does not account for a player's long-term potential or consistency over multiple seasons. Additionally, there may be other factors that contribute to a player's value beyond the metrics used in our analysis, such as leadership qualities or off-court behavior. Therefore, it is important to consider these additional factors when making decisions about player acquisition and team building.
